@@ -1,6 +1,7 @@
-import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI,Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from database import SessionLocal, base, engine
 import models
@@ -16,6 +17,13 @@ import private_chat
 models.base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True
+)
 app.include_router(auth.router)
 app.include_router(chat.router)
 manager = ConnectionManager()
@@ -156,7 +164,7 @@ async def private_chat_endpoint(websocket: WebSocket):
         manager.disconnect_private(user.id)
 
         #update last seen
-        user.last_seen = datetime.utcnow()
+        user.last_seen = datetime.now(timezone.utc)
         db.commit()
         
         await manager.broadcast_status(user.id, "offline")
