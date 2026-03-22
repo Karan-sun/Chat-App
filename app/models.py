@@ -1,8 +1,14 @@
-from sqlalchemy import String, Integer, Column, ForeignKey, DateTime, Boolean
+from sqlalchemy import String, Integer, Column, ForeignKey, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+from datetime import datetime, timezone
 from database import base
+import enum
+
+class MessageStatus(str, enum.Enum):
+    SENT = "sent"
+    DELIVERED = "delivered"
+    READ = "read"
 
 class User(base):
     __tablename__ = "users"
@@ -31,7 +37,7 @@ class Message(base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user_id = Column(Integer, ForeignKey("users.id"))
     room_id = Column(Integer, ForeignKey("chat_rooms.id"))
@@ -44,12 +50,12 @@ class PrivateMessage(base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     sender_id = Column(Integer, ForeignKey("users.id"))
     receiver_id = Column(Integer, ForeignKey("users.id"))
 
-    status = Column(String, default="sent")
+    status = Column(Enum(MessageStatus), default=MessageStatus.SENT)
 
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])

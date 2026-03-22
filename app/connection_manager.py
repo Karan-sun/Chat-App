@@ -20,8 +20,15 @@ class ConnectionManager:
 
 
     async def broadcast_room(self, room_id: str, message: dict):
+        dead_sockets = []
         for ws in self.room_connections.get(room_id, []):
-            await ws.send_json(message)
+            try:
+                await ws.send_json(message)
+            except Exception:
+                dead_sockets.append(ws)
+        
+        for ws in dead_sockets:
+            self.disconnect_room(room_id, ws)
             
     #Private Connections
     async def connect_private(self, user_id: int, websocket: WebSocket):
@@ -33,15 +40,25 @@ class ConnectionManager:
 
     async def send_private_message(self, receiver_id: int, message: dict):
         if receiver_id in self.private_connections:
-            await self.private_connections[receiver_id].send_json(message)
+            try:
+                await self.private_connections[receiver_id].send_json(message)
+            except Exception:
+                self.disconnect_private(receiver_id)
 
     async def broadcast_status(self, user_id: int, status: str):
-        for ws in self.private_connections.values():
-            await ws.send_json({
-                "type": "presence",
-                "user_id": user_id,
-                "status": status
-            })
+        dead_users = []
+        for uid, ws in self.private_connections.items():
+            try:
+                await ws.send_json({
+                    "type": "presence",
+                    "user_id": user_id,
+                    "status": status
+                })
+            except Exception:
+                dead_users.append(uid)
+        
+        for uid in dead_users:
+            self.disconnect_private(uid)
 
     def is_online(self, user_id: int):
         return user_id in self.private_connections

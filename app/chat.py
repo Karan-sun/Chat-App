@@ -17,7 +17,7 @@ def create_room(room: schemas.ChatRoomCreate, db: Session = Depends(get_db)):
 
 
 # Send message
-@router.post("/message", response_model=schemas.MessageResponse)
+@router.post("/message", response_model=schemas.MessageSchema)
 def send_message(
     message: schemas.MessageCreate,
     db: Session = Depends(get_db),
@@ -35,10 +35,12 @@ def send_message(
 
 
 # Get messages in room
-@router.get("/rooms/{room_id}/messages", response_model=list[schemas.MessageResponse])
-def get_messages(room_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Message).filter(models.Message.room_id == room_id).all()
+@router.get("/rooms", response_model=list[schemas.RoomSchema])
+def get_rooms(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return db.query(models.ChatRoom).all()
 
-
-
+@router.get("/rooms/{room_id}/messages", response_model=list[schemas.MessageSchema])
+def get_messages(room_id: int, skip: int = 0, limit: int = 50, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    msgs = db.query(models.Message).filter(models.Message.room_id == room_id).order_by(models.Message.timestamp.asc()).offset(skip).limit(limit).all()
+    return [{"id": m.id, "content": m.content, "timestamp": m.timestamp, "user_id": m.user_id, "room_id": m.room_id, "username": m.sender.username} for m in msgs]
 

@@ -7,11 +7,19 @@ import schemas
 from database import get_db 
 
 from datetime import timedelta
-from security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-
+from security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 
 # 1. Setup the router and password hashing tool
 router = APIRouter(tags=["Authentication"])
+
+@router.get("/users/search", response_model=list[schemas.UserPublicSchema])
+def search_users(q: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return db.query(models.User).filter(
+        models.User.username.ilike(f"%{q}%"),
+        models.User.id != current_user.id
+    ).limit(10).all()
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Helper function to hash passwords
@@ -75,3 +83,7 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+@router.get("/me", response_model=schemas.UserResponse)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user

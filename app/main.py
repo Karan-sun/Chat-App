@@ -17,9 +17,13 @@ import private_chat
 models.base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=origins,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True
@@ -35,7 +39,7 @@ def read_root():
     return {"Hello": "World"}
 
 @app.get("/me")
-def read_users_me(current_user: models.User = Depends(get_current_user)):
+async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -51,34 +55,43 @@ async def private_chat_endpoint(websocket: WebSocket):
         return
 
     db = SessionLocal()
-    user = verify_token(token=token, db=db)
-    if not user:
-        await websocket.close(code=1008)
-        return
+    try:
+        user = verify_token(token=token, db=db)
+        if not user:
+            await websocket.close(code=1008)
+            return
 
-    await manager.connect_private(user.id, websocket)
-    await manager.broadcast_status(user.id, "online")
-    # print(f"{user.username} is ONLINE")
+        current_user_id = user.id
+        current_username = user.username
 
-    #offline message
-    offline_messages = db.query(models.PrivateMessage).filter(
-        models.PrivateMessage.receiver_id == user.id,
-        models.PrivateMessage.status != "read"
-    ).all()
+        await manager.connect_private(current_user_id, websocket)
+        await manager.broadcast_status(current_user_id, "online")
 
-    for msg in offline_messages:
-        await websocket.send_json({
-            "type":"private_message",
-            "id": msg.id,
-            "sender_id": msg.sender_id,
-            "content": msg.content,
-            "status": msg.status,
-            "timestamp": str(msg.timestamp)
-        })
+        # Refresh user in current session
+        db_user = db.query(models.User).filter(models.User.id == current_user_id).first()
+        db_user.last_seen = datetime.now(timezone.utc)
+        db.commit()
 
-        msg.status = "delivered"
+        #offline message
+        offline_messages = db.query(models.PrivateMessage).filter(
+            models.PrivateMessage.receiver_id == current_user_id,
+            models.PrivateMessage.status != models.MessageStatus.READ
+        ).all()
 
-    db.commit()
+        for msg in offline_messages:
+            await websocket.send_json({
+                "type":"private_message",
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "content": msg.content,
+                "status": msg.status.value,
+                "timestamp": str(msg.timestamp)
+            })
+            msg.status = models.MessageStatus.DELIVERED
+
+        db.commit()
+    finally:
+        db.close()
 
     try:
         while True:
@@ -92,7 +105,7 @@ async def private_chat_endpoint(websocket: WebSocket):
                 if manager.is_online(receiver_id):
                     await manager.send_private_message(receiver_id, {
                         "type": "typing",
-                        "from": user.id
+                        "from": current_user_id
                     })
 
             # SEND MESSAGE
@@ -100,38 +113,43 @@ async def private_chat_endpoint(websocket: WebSocket):
                 receiver_id = data.get("receiver_id")
                 content = data.get("content")
 
-                # ✅ Validate receiver exists
-                receiver = db.query(models.User).filter(models.User.id == receiver_id).first()
-                if not receiver:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Receiver does not exist"
-                    })
-                    continue
-                status = "sent"
-                if manager.is_online(receiver_id):
-                    status = "delivered"
+                db = SessionLocal()
+                try:
+                    # Validate receiver exists
+                    receiver = db.query(models.User).filter(models.User.id == receiver_id).first()
+                    if not receiver:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Receiver does not exist"
+                        })
+                        continue
+                    status = models.MessageStatus.SENT
+                    if manager.is_online(receiver_id):
+                        status = models.MessageStatus.DELIVERED
 
-                new_message = models.PrivateMessage(
-                    content=content,
-                    sender_id=user.id,
-                    receiver_id=receiver_id,
-                    status=status
-                )
+                    new_message = models.PrivateMessage(
+                        content=content,
+                        sender_id=current_user_id,
+                        receiver_id=receiver_id,
+                        status=status
+                    )
 
-                db.add(new_message)
-                db.commit()
-                db.refresh(new_message)
-                # print(f"Saved message {new_message.id}: {content}")
-                payload = {
-                    "type": "private_message",
-                    "id": new_message.id,
-                    "sender_id": user.id,
-                    "receiver_id": receiver_id,
-                    "content": content,
-                    "status": status,
-                    "timestamp": str(new_message.timestamp)
-                }
+                    db.add(new_message)
+                    db.commit()
+                    db.refresh(new_message)
+                    
+                    payload = {
+                        "type": "private_message",
+                        "id": new_message.id,
+                        "sender_id": current_user_id,
+                        "receiver_id": receiver_id,
+                        "content": content,
+                        "status": status.value,
+                        "timestamp": str(new_message.timestamp)
+                    }
+                finally:
+                    db.close()
+
                 if manager.is_online(receiver_id):
                     await manager.send_private_message(receiver_id, payload)
 
@@ -143,35 +161,47 @@ async def private_chat_endpoint(websocket: WebSocket):
             # ======================
             elif data["type"] == "read":
                 msg_id = data.get("message_id")
+                
+                db = SessionLocal()
+                try:
+                    msg = db.query(models.PrivateMessage).filter(
+                        models.PrivateMessage.id == msg_id,
+                        models.PrivateMessage.receiver_id == current_user_id
+                    ).first()
 
-                msg = db.query(models.PrivateMessage).filter(
-                    models.PrivateMessage.id == msg_id,
-                    models.PrivateMessage.receiver_id == user.id
-                ).first()
+                    if msg:
+                        msg.status = models.MessageStatus.READ
+                        db.commit()
+                        
+                        sender_id = msg.sender_id
+                        msg_status = "read"
+                        msg_id_val = msg.id
+                    else:
+                        sender_id = None
+                finally:
+                    db.close()
 
-                if msg:
-                    msg.status = "read"
-                    db.commit()
-
-                    await manager.send_private_message(msg.sender_id,{
+                if sender_id is not None:
+                    await manager.send_private_message(sender_id,{
                         "type": "read_receipt",
-                        "message_id": msg.id,
-                        "status": "read"
+                        "message_id": msg_id_val,
+                        "status": msg_status
                     })
 
-
     except WebSocketDisconnect:
-        manager.disconnect_private(user.id)
+        manager.disconnect_private(current_user_id)
 
-        #update last seen
-        user.last_seen = datetime.now(timezone.utc)
-        db.commit()
+        db = SessionLocal()
+        try:
+            #update last seen
+            db_user = db.query(models.User).filter(models.User.id == current_user_id).first()
+            if db_user:
+                db_user.last_seen = datetime.now(timezone.utc)
+                db.commit()
+        finally:
+            db.close()
         
-        await manager.broadcast_status(user.id, "offline")
-        # print(f"{user.username} is OFFLINE")
-
-    finally:
-        db.close()
+        await manager.broadcast_status(current_user_id, "offline")
 
 @app.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: int):
@@ -181,28 +211,23 @@ async def websocket_endpoint(websocket: WebSocket, room_id: int):
         return
 
     db = SessionLocal()
-    user = verify_token(token=token, db=db)
-    if not user:
-        await websocket.close(code=1008)
-        return
+    try:
+        user = verify_token(token=token, db=db)
+        if not user:
+            await websocket.close(code=1008)
+            return
+            
+        current_user_id = user.id
+        current_username = user.username
+        
+        await manager.connect_room(str(room_id), websocket)
 
-    await manager.connect_room(str(room_id), websocket)
-
-    await manager.broadcast_room(str(room_id), {
-        "type": "status",
-        "message": f"{user.username} joined the room"
-    })
-
-    old_messages = db.query(models.Message)\
-        .filter(models.Message.room_id == room_id)\
-        .order_by(models.Message.timestamp).all()
-
-    for msg in old_messages:
-        await websocket.send_json({
-            "type": "message",
-            "username": msg.sender.username,
-            "content": msg.content
+        await manager.broadcast_room(str(room_id), {
+            "type": "status",
+            "message": f"{current_username} joined the room"
         })
+    finally:
+        db.close()
 
     try:
         while True:
@@ -211,31 +236,43 @@ async def websocket_endpoint(websocket: WebSocket, room_id: int):
             if data["type"] == "typing":
                 await manager.broadcast_room(room_id, {
                     "type": "typing",
-                    "username": user.username
+                    "username": current_username
                 })
 
             elif data["type"] == "message":
                 content = data["content"]
 
-                new_message = models.Message(
-                    content=content,
-                    user_id=user.id,
-                    room_id=room_id
-                )
-                db.add(new_message)
-                db.commit()
+                db = SessionLocal()
+                try:
+                    new_message = models.Message(
+                        content=content,
+                        user_id=current_user_id,
+                        room_id=room_id
+                    )
+                    db.add(new_message)
+                    db.commit()
+                    db.refresh(new_message)
 
-                await manager.broadcast_room(room_id, {
+                    msg_id = new_message.id
+                    msg_timestamp = str(new_message.timestamp)
+                finally:
+                    db.close()
+
+                await manager.broadcast_room(str(room_id), {
                     "type": "message",
-                    "username": user.username,
-                    "content": content
+                    "id": msg_id,
+                    "user_id": current_user_id,
+                    "room_id": room_id,
+                    "username": current_username,
+                    "content": content,
+                    "timestamp": msg_timestamp
                 })
 
     except WebSocketDisconnect:
         manager.disconnect_room(str(room_id), websocket)
         await manager.broadcast_room(room_id, {
             "type": "status",
-            "message": f"{user.username} left the room"
+            "message": f"{current_username} left the room"
         })
 
 

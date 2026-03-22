@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App - Option 2 (Modern Studio)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#09090b',
+                        surface: 'rgba(24, 24, 27, 0.7)',
+                        accent: '#6366f1', // Indigo primary
+                        accentHover: '#4f46e5',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #09090b; color: #e4e4e7; font-family: 'Inter', sans-serif; }
+        .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border-right: 1px solid rgba(255,255,255,0.05); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex selection:bg-indigo-500/30">
+
+    <!-- Navbar / Server List (Far Left) -->
+    <nav class="w-16 h-full glass-panel flex flex-col items-center py-4 space-y-4 z-20">
+        <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold cursor-pointer hover:rounded-lg transition-all duration-300 shadow-lg shadow-indigo-500/20">
+            <i data-lucide="message-square" class="w-5 h-5"></i>
+        </div>
+        <div class="w-8 h-[2px] bg-zinc-800 rounded mx-auto"></div>
+        <div class="w-10 h-10 bg-zinc-800 rounded-[20px] hover:rounded-xl transition-all duration-300 flex items-center justify-center cursor-pointer group hover:bg-indigo-500/20">
+            <span class="text-zinc-400 group-hover:text-indigo-400 font-semibold">T</span>
+        </div>
+        <div class="w-10 h-10 bg-zinc-800 rounded-[20px] hover:rounded-xl transition-all duration-300 flex items-center justify-center cursor-pointer group hover:bg-emerald-500/20 relative">
+            <span class="text-zinc-400 group-hover:text-emerald-400 font-semibold">P</span>
+            <span class="absolute right-0 bottom-0 w-3 h-3 bg-red-500 border-2 border-[#18181b] rounded-full"></span>
+        </div>
+        <div class="flex-1"></div>
+        <div class="w-10 h-10 bg-zinc-800 rounded-[20px] hover:rounded-xl transition-all duration-300 flex items-center justify-center cursor-pointer group hover:bg-zinc-700">
+            <i data-lucide="plus" class="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors"></i>
+        </div>
+    </nav>
+
+    <!-- Channel / Chat List (Middle Left) -->
+    <aside class="w-64 h-full glass-panel flex flex-col z-10">
+        <!-- Header -->
+        <div class="h-14 flex items-center justify-between px-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors">
+            <h1 class="font-bold text-white tracking-wide">Studio Chat</h1>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400"></i>
+        </div>
+        
+        <!-- Channels -->
+        <div class="flex-1 overflow-y-auto hide-scrollbar p-3 space-y-6">
+            <div>
+                <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-2 flex items-center justify-between group cursor-pointer">
+                    Text Channels
+                    <i data-lucide="plus" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300"></i>
+                </h2>
+                <ul class="space-y-[2px]">
+                    <li class="flex items-center px-2 py-1.5 rounded-md bg-zinc-800/50 text-white cursor-pointer group relative">
+                        <i data-lucide="hash" class="w-4 h-4 text-zinc-400 mr-2 group-hover:text-white transition-colors"></i>
+                        general
+                    </li>
+                    <li class="flex items-center px-2 py-1.5 rounded-md text-zinc-400 hover:bg-zinc-800/30 hover:text-white cursor-pointer group transition-colors">
+                        <i data-lucide="hash" class="w-4 h-4 text-zinc-500 mr-2 group-hover:text-white transition-colors"></i>
+                        announcements
+                        <span class="ml-auto w-2 h-2 rounded-full bg-white/20"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-2 flex items-center justify-between group cursor-pointer">
+                    Direct Messages
+                </h2>
+                <ul class="space-y-[2px]">
+                    <li class="flex items-center px-2 py-1.5 rounded-md text-zinc-400 hover:bg-zinc-800/30 hover:text-white cursor-pointer transition-colors relative">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 mr-2 relative">
+                            <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#09090b] bg-green-500"></span>
+                        </div>
+                        Alice Johnson
+                    </li>
+                    <li class="flex items-center px-2 py-1.5 rounded-md text-zinc-400 hover:bg-zinc-800/30 hover:text-white cursor-pointer transition-colors">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-rose-500 to-orange-500 mr-2 relative"></div>
+                        Bob Smith
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- User Profile Area -->
+        <div class="h-14 bg-black/40 flex items-center px-3 justify-between">
+            <div class="flex items-center cursor-pointer hover:bg-white/5 py-1 px-2 rounded -ml-2 transition-colors">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 mr-2 relative">
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#09090b] bg-green-500"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-sm font-semibold text-white leading-tight">Me</span>
+                    <span class="text-xs text-zinc-400 leading-tight">Online</span>
+                </div>
+            </div>
+            <div class="flex space-x-1">
+                <button class="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"><i data-lucide="mic" class="w-4 h-4"></i></button>
+                <button class="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"><i data-lucide="settings" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 flex flex-col bg-[#09090b] relative z-0">
+        <!-- Chat Header -->
+        <div class="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md absolute top-0 w-full z-10 shadow-sm">
+            <div class="flex items-center">
+                <i data-lucide="hash" class="w-5 h-5 text-zinc-400 mr-2"></i>
+                <h2 class="font-bold text-white tracking-wide">general</h2>
+                <div class="w-[1px] h-5 bg-zinc-800 mx-3"></div>
+                <p class="text-sm text-zinc-400">Welcome to the central hub!</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-zinc-400 hover:text-white transition-colors"><i data-lucide="phone" class="w-5 h-5"></i></button>
+                <button class="text-zinc-400 hover:text-white transition-colors"><i data-lucide="video" class="w-5 h-5"></i></button>
+                <div class="relative">
+                    <input type="text" placeholder="Search" class="bg-[#09090b] border border-zinc-800 rounded text-sm px-2 py-1 w-36 focus:outline-none focus:border-indigo-500 focus:w-48 transition-all text-white placeholder-zinc-500">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-500 absolute right-2 top-1.5"></i>
+                </div>
+                <button class="text-zinc-400 hover:text-white transition-colors"><i data-lucide="bell" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="flex-1 overflow-y-auto pt-16 pb-4 px-4 space-y-5 hide-scrollbar scroll-smooth">
+            
+            <!-- Date Divider -->
+            <div class="flex items-center justify-center my-6">
+                <div class="border-t border-zinc-800 flex-1"></div>
+                <span class="text-xs font-semibold text-zinc-500 px-3">August 23, 2026</span>
+                <div class="border-t border-zinc-800 flex-1"></div>
+            </div>
+
+            <!-- Message 1 -->
+            <div class="flex hover:bg-black/20 mt-1 py-1 -mx-4 px-4 transition-colors group">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 mr-4 flex-shrink-0 cursor-pointer"></div>
+                <div class="flex-1">
+                    <div class="flex items-baseline space-x-2">
+                        <span class="font-semibold text-white hover:underline cursor-pointer">Alice Johnson</span>
+                        <span class="text-xs text-zinc-500">08:42 AM</span>
+                    </div>
+                    <p class="text-zinc-300 mt-0.5">Hey everyone! Has anyone checked out the new frontend designs for the app?</p>
+                </div>
+                <div class="opacity-0 group-hover:opacity-100 flex space-x-1 absolute right-8 bg-[#09090b] border border-zinc-800 rounded p-1 shadow-md transition-opacity -mt-2">
+                    <button class="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"><i data-lucide="smile" class="w-4 h-4"></i></button>
+                    <button class="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"><i data-lucide="corner-up-left" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <!-- Message 2 (Me) -->
+            <div class="flex hover:bg-black/20 mt-1 py-1 -mx-4 px-4 transition-colors group bg-indigo-500/5">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 mr-4 flex-shrink-0 cursor-pointer"></div>
+                <div class="flex-1">
+                    <div class="flex items-baseline space-x-2">
+                        <span class="font-semibold text-indigo-400 hover:underline cursor-pointer">Me</span>
+                        <span class="text-xs text-zinc-500">08:45 AM</span>
+                    </div>
+                    <p class="text-zinc-300 mt-0.5">Yes! The Option 2 layout looks fantastic. Loving the glassmorphism on the sidebar.</p>
+                    <div class="bg-[#18181b] p-3 rounded-md mt-2 border border-zinc-800/80 inline-block max-w-lg">
+                        <code class="text-emerald-400 text-sm font-mono">&lt;div class="glass-panel"&gt; ... &lt;/div&gt;</code>
+                    </div>
+                </div>
+                <div class="opacity-0 group-hover:opacity-100 flex space-x-1 absolute right-8 bg-[#09090b] border border-zinc-800 rounded p-1 shadow-md transition-opacity -mt-2">
+                    <button class="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"><i data-lucide="smile" class="w-4 h-4"></i></button>
+                    <button class="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <!-- Message 3 -->
+            <div class="flex hover:bg-black/20 mt-1 py-1 -mx-4 px-4 transition-colors group">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 mr-4 flex-shrink-0 opacity-0 hidden"></div>
+                <div class="w-10 mr-4 flex-shrink-0 text-right">
+                     <span class="text-[10px] text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity">08:47</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-zinc-300">Also, they just implemented pagination and secure environment variables in the backend!</p>
+                </div>
+            </div>
+            
+            <!-- Message 4 -->
+            <div class="flex hover:bg-black/20 mt-1 py-1 -mx-4 px-4 transition-colors group">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-500 to-orange-500 mr-4 flex-shrink-0 cursor-pointer"></div>
+                <div class="flex-1">
+                    <div class="flex items-baseline space-x-2">
+                        <span class="font-semibold text-white hover:underline cursor-pointer">Bob Smith</span>
+                        <span class="text-xs text-zinc-500">09:02 AM</span>
+                    </div>
+                    <p class="text-zinc-300 mt-0.5">That's going to make our app blazing fast 🚀</p>
+                </div>
+            </div>
+            <div class="h-4"></div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <div class="pt-2 pb-6 px-4 bg-[#09090b]">
+            <div class="bg-[#18181b] border border-zinc-800 rounded-lg shadow-sm flex flex-col p-2">
+                <input type="text" placeholder="Message #general" class="bg-transparent w-full px-2 py-1.5 focus:outline-none text-zinc-100 placeholder-zinc-500 text-sm">
+                <div class="flex items-center justify-between mt-2 pt-1 border-t border-zinc-800/50">
+                    <div class="flex space-x-1">
+                        <button class="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors"><i data-lucide="plus-circle" class="w-4 h-4"></i></button>
+                        <button class="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors"><i data-lucide="image" class="w-4 h-4"></i></button>
+                        <button class="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors"><i data-lucide="smile" class="w-4 h-4"></i></button>
+                    </div>
+                    <div>
+                        <button class="bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded flex items-center justify-center transition-colors shadow-lg shadow-indigo-500/20"><i data-lucide="send" class="w-4 h-4 -ml-0.5"></i></button>
+                    </div>
+                </div>
+            </div>
+            <!-- Typing indicator -->
+            <p class="text-[11px] text-zinc-400 font-semibold absolute bottom-2 pl-2">Alice Johnson is typing...</p>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
