@@ -5,15 +5,20 @@ import { usePrivateMessages } from '../api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import MessageBubble from './MessageBubble';
 import { Send, Smile, Paperclip, Video, Phone, Search, MoreVertical } from 'lucide-react';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import toast from 'react-hot-toast';
+import { useAuthStore } from '../store/authStore';
 
 export default function ChatArea() {
     const { activeUserId } = useChatStore();
     const { data: initialMessages, isLoading } = usePrivateMessages(activeUserId);
     const { sendPrivateMessage, registerListener, unregisterListener } = useWebSocket();
     const queryClient = useQueryClient();
+    const user = useAuthStore(s => s.user);
 
     const [messages, setMessages] = useState<any[]>([]);
     const [inputText, setInputText] = useState('');
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -31,15 +36,18 @@ export default function ChatArea() {
         const handleNewMessage = (data: any) => {
             // Check if the message belongs to the current open chat
             if (
-                (data.sender_id === activeUserId) ||
-                (data.receiver_id === activeUserId)
+                data.sender_id === activeUserId ||
+                data.receiver_id === activeUserId
             ) {
                 setMessages(prev => {
-                    // Check if message already exists (optimistic update case)
                     const exists = prev.find(m => m.id === data.id);
                     if (exists) return prev;
                     return [...prev, data];
                 });
+            } else {
+                if (user && data.sender_id !== user.id) {
+                    toast.success(`New message from User ${data.sender_id}`);
+                }
             }
             // invalidate queries to keep react-query cache fresh
             queryClient.invalidateQueries({ queryKey: ['messages', activeUserId] });
@@ -56,7 +64,12 @@ export default function ChatArea() {
             unregisterListener('private_message', handleNewMessage);
             unregisterListener('read_receipt', handleReadReceipt);
         };
-    }, [activeUserId, registerListener, unregisterListener, queryClient]);
+    }, [activeUserId, registerListener, unregisterListener, queryClient, user]);
+
+    const handleEmojiClick = (emojiData: EmojiClickData) => {
+        setInputText(prev => prev + emojiData.emoji);
+        setShowEmojiPicker(false);
+    };
 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
@@ -133,9 +146,19 @@ export default function ChatArea() {
             </div>
 
             {/* Input Area */}
-            <div className="px-4 py-3 bg-zinc-900/90 backdrop-blur-md z-10 border-t border-white/5 flex items-center space-x-3">
+            <div className="px-4 py-3 bg-zinc-900/90 backdrop-blur-md z-10 border-t border-white/5 flex items-center space-x-3 relative">
                 <button className="text-zinc-400 hover:text-white transition-colors p-2"><Paperclip className="w-6 h-6" /></button>
-                <button className="text-zinc-400 hover:text-white transition-colors p-2"><Smile className="w-6 h-6" /></button>
+
+                <div className="relative">
+                    <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="text-zinc-400 hover:text-white transition-colors p-2">
+                        <Smile className="w-6 h-6" />
+                    </button>
+                    {showEmojiPicker && (
+                        <div className="absolute bottom-12 left-0 z-50 shadow-2xl">
+                            <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.DARK} />
+                        </div>
+                    )}
+                </div>
 
                 <form onSubmit={handleSendMessage} className="flex-1 flex">
                     <div className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg flex items-center px-4 py-2 focus-within:border-indigo-500/50 shadow-inner">

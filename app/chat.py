@@ -8,7 +8,9 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 
 # Create room
 @router.post("/rooms", response_model=schemas.ChatRoomResponse)
-def create_room(room: schemas.ChatRoomCreate, db: Session = Depends(get_db)):
+def create_room(room: schemas.ChatRoomCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.email != "karanj542002@gmail.com":
+        raise HTTPException(status_code=403, detail="Not authorized to create rooms")
     new_room = models.ChatRoom(name=room.name)
     db.add(new_room)
     db.commit()
